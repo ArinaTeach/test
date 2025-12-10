@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Прогресс учеников</title>
+    <style>
+        :root {
+            --bg-page: #f5f7ff;
+            --card-bg: #ffffff;
+            --accent: #4f46e5;
+            --accent-soft: #e0e7ff;
+            --text-main: #111827;
+            --text-soft: #4b5563;
+            --border-soft: #e5e7eb;
+            --shadow-soft: 0 10px 25px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #e0f2fe 0, var(--bg-page) 55%);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 32px 16px;
+            color: var(--text-main);
+        }
+
+        .page {
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        header h1 {
+            font-size: clamp(1.7rem, 2.5vw, 2.2rem);
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: 0.95rem;
+            color: var(--text-soft);
+        }
+
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .student-card {
+            width: 220px;
+            background: var(--card-bg);
+            border-radius: 18px;
+            padding: 20px 16px 16px;
+            box-shadow: var(--shadow-soft);
+            border: 1px solid var(--border-soft);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .student-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+        }
+
+        .avatar-wrapper {
+            width: 82px;
+            height: 82px;
+            border-radius: 50%;
+            padding: 4px;
+            background: radial-gradient(circle at 30% 20%, #f97316, #facc15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .avatar-wrapper img,
+        .avatar-placeholder {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: var(--accent-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.4rem;
+            color: var(--accent);
+            border: 2px solid #ffffff;
+        }
+
+        .avatar-placeholder {
+            text-transform: uppercase;
+        }
+
+        .student-name {
+            font-size: 1.02rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .tasks-count {
+            font-size: 0.95rem;
+            color: var(--text-soft);
+            margin-bottom: 10px;
+        }
+
+        .stars {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            margin-top: auto;
+        }
+
+        .empty-stars {
+            opacity: 0.25;
+        }
+
+        .legend {
+            margin-top: 18px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-soft);
+        }
+
+        .legend span {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .error {
+            color: #b91c1c;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            border-radius: 12px;
+            padding: 12px 14px;
+            max-width: 420px;
+            margin: 0 auto;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-soft);
+        }
+
+        footer code {
+            background: #e5e7eb;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <h1>Прогресс участников</h1>
+            <p>Данные берутся из CSV-файла <strong>students.csv</strong>, лежащего рядом с этим HTML-файлом.</p>
+        </header>
+
+        <main>
+            <div id="cards" class="cards-container"></div>
+            <p id="error" class="error" style="display: none;"></p>
+            <p class="legend">Правило: <span>1 ⭐ за каждые 3 выполненных задания</span>.</p>
+        </main>
+
+        <footer>
+            Ожидаемые столбцы в CSV: <code>ФИ;задания;аватарка</code> (разделитель может быть <code>;</code> или <code>,</code>).
+        </footer>
+    </div>
+
+    <script>
+        const CSV_FILE = 'students.csv'; // имя файла с данными
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCSV();
+        });
+
+        async function loadCSV() {
+            const cardsContainer = document.getElementById('cards');
+            const errorEl = document.getElementById('error');
+
+            try {
+                const response = await fetch(CSV_FILE);
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                const text = await response.text();
+                const students = parseCSV(text);
+
+                if (!students.length) {
+                    errorEl.style.display = 'block';
+                    errorEl.textContent = 'Файл CSV пустой или в нём нет данных участников.';
+                    return;
+                }
+
+                renderCards(students);
+            } catch (err) {
+                console.error('Ошибка загрузки CSV:', err);
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Не удалось загрузить файл ' + CSV_FILE + '. Убедитесь, что он находится рядом с этим HTML-файлом и доступен по HTTPS.';
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split(/\r?\n/);
+            if (lines.length <= 1) return [];
+
+            const students = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
+
+                // Определяем разделитель: сначала пробуем ";", потом ","
+                let parts = line.split(';');
+                if (parts.length < 3) {
+                    parts = line.split(',');
+                }
+
+                if (i === 0) {
+                    // предполагаем, что первая строка — заголовки, проверяем по наличию русских слов
+                    const header = parts.map(p => p.toLowerCase());
+                    if (
+                        header.some(h => h.includes('фи')) ||
+                        header.some(h => h.includes('фам')) ||
+                        header.some(h => h.includes('имя'))
+                    ) {
+                        continue; // пропускаем строку заголовка
+                    }
+                }
+
+                if (parts.length < 2) continue;
+
+                const name = (parts[0] || '').trim();
+                const tasksStr = (parts[1] || '').trim();
+                const avatar = (parts[2] || '').trim();
+
+                if (!name) continue;
+
+                const tasks = parseInt(tasksStr, 10);
+                const safeTasks = Number.isFinite(tasks) && tasks >= 0 ? tasks : 0;
+
+                students.push({ name, tasks: safeTasks, avatar });
+            }
+
+            return students;
+        }
+
+        function renderCards(students) {
+            const cardsContainer = document.getElementById('cards');
+            cardsContainer.innerHTML = '';
+
+            students.forEach(student => {
+                const card = document.createElement('div');
+                card.className = 'student-card';
+
+                const avatarWrapper = document.createElement('div');
+                avatarWrapper.className = 'avatar-wrapper';
+
+                let avatarEl;
+                if (student.avatar) {
+                    avatarEl = document.createElement('img');
+                    avatarEl.src = student.avatar;
+                    avatarEl.alt = 'Аватар ' + student.name;
+                    avatarEl.addEventListener('error', () => {
+                        avatarEl.remove();
+                        const placeholder = createAvatarPlaceholder(student.name);
+                        avatarWrapper.appendChild(placeholder);
+                    });
+                } else {
+                    avatarEl = createAvatarPlaceholder(student.name);
+                }
+
+                avatarWrapper.appendChild(avatarEl);
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'student-name';
+                nameEl.textContent = student.name;
+
+                const tasksEl = document.createElement('div');
+                tasksEl.className = 'tasks-count';
+                tasksEl.textContent = `${student.tasks} выполненных заданий`;
+
+                const starsEl = document.createElement('div');
+                starsEl.className = 'stars';
+                const starCount = Math.floor(student.tasks / 3);
+                starsEl.textContent = starCount > 0 ? '⭐'.repeat(starCount) : '';
+
+                card.appendChild(avatarWrapper);
+                card.appendChild(nameEl);
+                card.appendChild(tasksEl);
+                card.appendChild(starsEl);
+
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        function createAvatarPlaceholder(name) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'avatar-placeholder';
+            const initials = getInitials(name);
+            placeholder.textContent = initials;
+            return placeholder;
+        }
+
+        function getInitials(name) {
+            if (!name) return '?';
+            const parts = name.trim().split(/\s+/);
+            let initials = parts[0][0] || '';
+            if (parts.length > 1) {
+                initials += parts[1][0] || '';
+            }
+            return initials.toUpperCase();
+        }
+    </script>
+</body>
+</html>
