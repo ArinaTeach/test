@@ -258,7 +258,11 @@
 
                 const name = (parts[0] || '').trim();
                 const tasksStr = (parts[1] || '').trim();
-                const avatar = (parts[2] || '').trim();
+               let avatarRaw = (parts[2] || '').trim();
+// Убираем кавычки вокруг пути (если CSV добавил)
+avatarRaw = avatarRaw.replace(/^["']|["']$/g, '');
+const avatar = avatarRaw;
+
 
                 if (!name) continue;
 
